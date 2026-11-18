@@ -25,6 +25,11 @@ buffer buffers[MAX_BUFFERS];
 int currentBuffer = 0;
 static int running = 1;
 
+// Variáveis do Cursor
+int cursor_x = 0;
+int cursor_y = 0;
+int cursor_vel = 5;
+
 static void sysutil_callback(u64 status, u64 param, void *userdata) {
     if (status == SYSUTIL_EXIT_GAME) {
         running = 0;
@@ -76,6 +81,10 @@ void init_screen() {
 
     gcmResetFlipStatus();
     flip(1);
+
+    // Começa o cursor no meio da tela
+    cursor_x = res.width / 2;
+    cursor_y = res.height / 2;
 }
 
 void draw_circle(buffer *buf, int cx, int cy, int r, uint32_t color) {
@@ -126,6 +135,30 @@ void draw_apple(buffer *buf, int cx, int cy) {
     draw_circle(buf, cx + 6, cy - 26, 8, 0x0032CD32);
 }
 
+// NOVA FUNÇÃO: Desenha o Cursor "+" preto
+void draw_cursor(buffer *buf, int cx, int cy) {
+    uint32_t cor = 0x00000000; // Preto
+    int tam = 10; // Metade do tamanho do braço do +
+    int esp = 2;  // Espessura
+
+    // Linha Horizontal
+    for (int y = cy - esp; y <= cy + esp; y++) {
+        for (int x = cx - tam; x <= cx + tam; x++) {
+            if (x >= 0 && x < buf->width && y >= 0 && y < buf->height) {
+                buf->ptr[y * buf->width + x] = cor;
+            }
+        }
+    }
+    // Linha Vertical
+    for (int y = cy - tam; y <= cy + tam; y++) {
+        for (int x = cx - esp; x <= cx + esp; x++) {
+            if (x >= 0 && x < buf->width && y >= 0 && y < buf->height) {
+                buf->ptr[y * buf->width + x] = cor;
+            }
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     init_screen();
     ioPadInit(7);
@@ -142,6 +175,27 @@ int main(int argc, char *argv[]) {
 
         if (padinfo.status) {
             ioPadGetData(0, &paddata);
+            
+            // Movimentação do Cursor pelo Direcional (D-Pad)
+            if (paddata.BTN_LEFT)  cursor_x -= cursor_vel;
+            if (paddata.BTN_RIGHT) cursor_x += cursor_vel;
+            if (paddata.BTN_UP)    cursor_y -= cursor_vel;
+            if (paddata.BTN_DOWN)  cursor_y += cursor_vel;
+
+            // Movimentação pelo Analógico Esquerdo (Stick)
+            // O analógico fica parado no 128, então se passar disso ele mexe.
+            if (paddata.ANA_L_H > 150) cursor_x -= cursor_vel;
+            if (paddata.ANA_L_H < 100) cursor_x += cursor_vel;
+            if (paddata.ANA_L_V > 150) cursor_y -= cursor_vel;
+            if (paddata.ANA_L_V < 100) cursor_y += cursor_vel;
+
+            // Trava o cursor pra não sair da tela
+            if (cursor_x < 0) cursor_x = 0;
+            if (cursor_x >= res.width) cursor_x = res.width - 1;
+            if (cursor_y < 0) cursor_y = 0;
+            if (cursor_y >= res.height) cursor_y = res.height - 1;
+
+            // Ação do botão X (Cross)
             if (paddata.BTN_CROSS && eat_timer == 0) {
                 eat_timer = 35;
                 apple_x = (res.width / 2) + 180;
@@ -172,6 +226,9 @@ int main(int argc, char *argv[]) {
         } else {
             draw_pou(buf, cx, cy, 0);
         }
+
+        // Desenha o cursor por cima de tudo no final
+        draw_cursor(buf, cursor_x, cursor_y);
 
         flip(currentBuffer);
         currentBuffer = !currentBuffer;
