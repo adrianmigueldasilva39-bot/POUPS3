@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <malloc.h>
 #include <math.h>
 #include <io/pad.h>
@@ -18,7 +19,7 @@ typedef struct {
     uint32_t offset;
 } buffer;
 
-gcmContextData *context;
+gcmContextData *context = NULL;
 videoResolution res;
 buffer buffers[MAX_BUFFERS];
 int currentBuffer = 0;
@@ -54,7 +55,7 @@ void makeBuffer(buffer *buf, u16 width, u16 height, int id) {
 
 void init_screen() {
     void *host_addr = memalign(1024 * 1024, 1024 * 1024);
-    context = rsxInit(0x10000, 1024 * 1024, host_addr);
+    rsxInit(&context, 0x10000, 1024 * 1024, host_addr);
 
     videoState state;
     videoGetState(0, 0, &state);
@@ -139,7 +140,7 @@ int main(int argc, char *argv[]) {
         sysUtilCheckCallback();
         ioPadGetInfo(&padinfo);
 
-        if (padinfo.status[0]) {
+        if (padinfo.status) {
             ioPadGetData(0, &paddata);
             if (paddata.BTN_CROSS && eat_timer == 0) {
                 eat_timer = 35;
