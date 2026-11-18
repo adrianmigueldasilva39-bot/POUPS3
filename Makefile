@@ -29,8 +29,8 @@ $(TARGET).pkg: $(TARGET).elf ICON0.PNG $(SFOXML)
 	rm -rf pkg
 	mkdir -p pkg/USRDIR
 	cp ICON0.PNG pkg/ICON0.PNG
-	cp corpo.png pkg/USRDIR/corpo.png
-	cp comida.png pkg/USRDIR/comida.png
+	# Agora ele copia TODAS as imagens da pasta
+	cp *.png pkg/USRDIR/
 	$(PS3DEV)/bin/sprxlinker $(TARGET).elf
 	$(PS3DEV)/bin/make_self_npdrm $(TARGET).elf pkg/USRDIR/EBOOT.BIN $(CONTENTID)
 	$(PS3DEV)/bin/sfo.py --title "$(TITLE)" --appid "$(APPID)" -f $(SFOXML) pkg/PARAM.SFO
