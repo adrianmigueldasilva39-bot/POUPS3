@@ -1,56 +1,40 @@
-.SUFFIXES:
-
 ifeq ($(strip $(PSL1GHT)),)
-$(error "Please set PSL1GHT in your environment")
+$(error "Defina a variavel PSL1GHT")
 endif
-
 include $(PSL1GHT)/ppu_rules
 
-TARGET		:=	pou_ps3
-BUILD		:=	build
-SOURCES		:=	source
-INCLUDES	:=	include
+.DEFAULT_GOAL := all
 
-TITLE		:=	Pou PS3
-APPID		:=	POUPS3001
-CONTENTID	:=	UP0001-POUPS3001_00-0000000000000000
+TARGET    := pou
+TITLE     := Pou PS3
+APPID     := POUP00001
+CONTENTID := UP0001-$(APPID)_00-0000000000000000
+SFOXML    := sfo.xml
+PORTLIBS  := $(PS3DEV)/portlibs/ppu
 
-CFLAGS		:=	-g -O2 -Wall -mcpu=cell $(MACHDEP) $(INCLUDE)
-CXXFLAGS	:=	$(CFLAGS)
-LDFLAGS		:=	$(MACHDEP) -Wl,-Map,$(notdir $@).map
+MACHDEP := -mhard-float -fmodulo-sched -ffunction-sections -fdata-sections
+CFLAGS  := -O2 -Wall -mcpu=cell $(MACHDEP) -I$(PSL1GHT)/ppu/include -I$(PORTLIBS)/include
+LDFLAGS := $(MACHDEP) -L$(PSL1GHT)/ppu/lib -L$(PORTLIBS)/lib
+LIBS    := -lrsx -lgcm_sys -lio -lsysutil -lrt -llv2 -lm
 
-LIBS		:=	-lSDL_image -lpng -ljpeg -lz -lSDL -laudio -lio -lsysutil -lsysmodule -lgcm_sys -lreality -lm
+all: $(TARGET).pkg
 
-export OUTPUT	:=	$(CURDIR)/$(TARGET)
-export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir))
-export BUILDDIR	:=	$(CURDIR)/$(BUILD)
-export DEPSDIR	:=	$(BUILDDIR)
+main.o: main.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
-OBJS		:=	$(CFILES:.c=.o)
+$(TARGET).elf: main.o
+	$(CC) $(LDFLAGS) -o $@ $< $(LIBS)
 
-export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
-					$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-					-I$(BUILDDIR)
-
-export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
-
-.PHONY: $(BUILD) clean pkg
-
-$(BUILD):
-	@[ -d $@ ] || mkdir -p $@
-	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+$(TARGET).pkg: $(TARGET).elf ICON0.PNG $(SFOXML)
+	rm -rf pkg
+	mkdir -p pkg/USRDIR
+	cp ICON0.PNG pkg/ICON0.PNG
+	cp corpo.png pkg/USRDIR/corpo.png
+	cp comida.png pkg/USRDIR/comida.png
+	$(PS3DEV)/bin/sprxlinker $(TARGET).elf
+	$(PS3DEV)/bin/make_self_npdrm $(TARGET).elf pkg/USRDIR/EBOOT.BIN $(CONTENTID)
+	$(PS3DEV)/bin/sfo.py --title "$(TITLE)" --appid "$(APPID)" -f $(SFOXML) pkg/PARAM.SFO
+	$(PS3DEV)/bin/pkg.py --contentid $(CONTENTID) pkg/ $@
 
 clean:
-	@rm -rf $(BUILD) $(OUTPUT).elf $(OUTPUT).self $(OUTPUT).pkg pkg
-
-pkg: $(BUILD)
-	@make_self_npdrm $(OUTPUT).elf EBOOT.BIN $(CONTENTID)
-	@mkdir -p pkg/USRDIR
-	@cp EBOOT.BIN pkg/USRDIR/
-	@cp corpo.png pkg/USRDIR/
-	@cp comida.png pkg/USRDIR/
-	@sfo.py --title "$(TITLE)" --appid "$(APPID)" -f $(PSL1GHT)/bin/sfo.xml pkg/PARAM.SFO
-	@pkg.py --contentid $(CONTENTID) pkg/ $(OUTPUT).pkg
-
-$(OUTPUT).elf: $(OBJS)
+	rm -rf pkg *.o *.elf *.self *.pkg
